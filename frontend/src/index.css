@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+/* Твой шрифт и база */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  font-family: 'Inter', sans-serif;
+  background-color: #050505;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: #050505;
+}
