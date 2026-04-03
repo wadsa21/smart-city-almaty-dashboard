@@ -3,6 +3,9 @@ import requests
 import uvicorn
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import os
+from dotenv import load_dotenv
+
 
 # Импортируем наш ML движок из соседнего файла
 from ml_logic import engine 
@@ -17,9 +20,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+load_dotenv()
 # --- КОНФИГУРАЦИЯ ---
-OPENWEATHER_API_KEY = "ТВОЙ_API_KEY" # ЗАМЕНИ НА СВОЙ КЛЮЧ
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 # Координаты и базовый износ труб по районам Алматы
 DISTRICTS = {
