@@ -17,7 +17,7 @@ function App() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/dashboard?category=${category}&district=${district}`);
+      const response = await fetch(`https://smart-city-almaty-dashboard.onrender.com/api/v1/dashboard...`);
       const result = await response.json();
       setData(result);
     } catch (error) {
