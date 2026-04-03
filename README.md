@@ -1,17 +1,48 @@
-# Smart City Management Dashboard (Almaty)
+Это отличная мысль! README.md — это первое, что увидит жюри, когда перейдет по ссылке на твой GitHub. Хорошее описание превращает «просто код» в «профессиональный продукт».
 
-MVP-прототип системы мониторинга города с использованием ИИ.
+Для хакатона README должен быть коротким, визуальным и технически обоснованным.
 
-## 🚀 Функционал
-- **Экология:** Мониторинг воздуха в реальном времени через OpenWeather API по 8 районам Алматы.
-- **ЖКХ:** Мониторинг состояния сетей (давление воды, нагрузка) на базе Mock-данных.
-- **AI/ML:** Оценка рисков аварий и загрязнения с использованием Scikit-Learn (Random Forest).
-- **Интерактивая панель:** Рекомендации по формату "Что произошло? -> Критичность -> Действие".
+Вот готовый шаблон, который ты можешь скопировать и вставить:
 
-## 🛠 Технологии
-- **Frontend:** React, Tailwind CSS, Lucide Icons, Recharts.
-- **Backend:** Python, FastAPI, Scikit-Learn, Requests.
+🏙️ Smart City Almaty: Unified AI Dashboard
+Интеллектуальная система управления городскими ресурсами Алматы.
+Проект объединяет мониторинг ЖКХ, анализ трафика и контроль качества воздуха (AQI) в одном интерфейсе с использованием гибридного ИИ.
 
-## 📦 Запуск
-1. **Backend:** `cd backend && pip install -r requirements.txt && python main.py`
-2. **Frontend:** `cd frontend && npm install && npm start`
+🚀 Ссылки (Production)
+Frontend (React): https://твой-проект.vercel.app
+
+Backend (FastAPI): https://smart-city-almaty-dashboard.onrender.com
+
+🧠 Технологический стек
+Frontend: React, Vite, Tailwind CSS (Dashboard UI).
+
+Backend: FastAPI, Python 3.10+.
+
+AI/ML: * Nano Banano Pro (RandomForest): Локальная ML-модель для мгновенной классификации рисков ЖКХ.
+
+Google Gemini 2.0 Flash: Генерация экспертных рекомендаций для диспетчера.
+
+Data Sources: OpenWeather Air Pollution API, TomTom Traffic API.
+
+🛠️ Архитектура системы
+Ingestion: Сбор данных с датчиков и API (Трафик, Экология, Статус сетей).
+
+Processing: Локальный ML-движок анализирует данные и выставляет статус риска.
+
+Intelligence: Если риск критический, данные передаются в Gemini 2.0 для составления пошагового плана устранения аварии.
+
+Delivery: Диспетчер получает готовое решение на дашборд.
+
+💻 Локальный запуск
+Backend
+Bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # Для Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload
+Frontend
+Bash
+cd frontend
+npm install
+npm run dev
