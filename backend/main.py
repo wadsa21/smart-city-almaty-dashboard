@@ -1,33 +1,32 @@
+import os
 import random
 import requests
-import uvicorn
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import os
 from dotenv import load_dotenv
 
-
-# Импортируем наш ML движок из соседнего файла
+# Импорт нашего движка
 from ml_logic import engine 
 
-app = FastAPI(title="Smart City Almaty - AI Dashboard API")
+load_dotenv()
 
-# --- НАСТРОЙКА CORS (ОБЯЗАТЕЛЬНО ДЛЯ REACT) ---
+app = FastAPI(title="Smart City Almaty API")
+
+# Разрешаем фронтенду (React) стучаться в бэкенд
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Разрешаем запросы со всех адресов (для хакатона ок)
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-load_dotenv()
-# --- КОНФИГУРАЦИЯ ---
-API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
-# Координаты и базовый износ труб по районам Алматы
+TOMTOM_KEY = os.getenv("TOMTOM_API_KEY")
+
+# Справочник районов Алматы
 DISTRICTS = {
     "Medeu": {"lat": 43.2360, "lon": 76.9458, "wear": 45},
-    "Bostandyq": {"lat": 43.2185, "lon": 76.9276, "wear": 85}, # Высокий износ для тестов
+    "Bostandyq": {"lat": 43.2185, "lon": 76.9276, "wear": 85},
     "Almaly": {"lat": 43.2551, "lon": 76.9126, "wear": 60},
     "Auezov": {"lat": 43.2381, "lon": 76.8453, "wear": 55},
     "Zhetysu": {"lat": 43.3000, "lon": 76.9333, "wear": 70},
@@ -36,124 +35,55 @@ DISTRICTS = {
     "Nauryzbay": {"lat": 43.2000, "lon": 76.7800, "wear": 25},
 }
 
-# --- ЛОГИКА ПОЛУЧЕНИЯ ДАННЫХ ---
-
-def fetch_weather(lat, lon):
-    """Запрос реальных данных загрязнения воздуха"""
+def get_traffic_data(lat, lon):
+    """Данные из TomTom или мок-данные"""
+    if not TOMTOM_KEY:
+        return {"index": random.randint(1, 8), "speed": random.randint(20, 60)}
     try:
-        url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}"
-        r = requests.get(url, timeout=5)
-        if r.status_code == 200:
-            data = r.json()['list'][0]
-            return {
-                "aqi": data['main']['aqi'], # Индекс 1-5
-                "pm25": round(data['components']['pm2_5'], 2),
-                "no2": data['components']['no2']
-            }
-    except Exception:
-        pass
-    # Fallback (если API упал или нет ключа)
-    return {"aqi": random.randint(1, 4), "pm25": round(random.uniform(15, 60), 2), "no2": 10.5}
+        url = f"https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?key={TOMTOM_KEY}&point={lat},{lon}"
+        r = requests.get(url, timeout=5).json()
+        flow = r['flowSegmentData']
+        idx = min(10, round((1 - flow['currentSpeed']/flow['freeFlowSpeed']) * 12))
+        return {"index": max(1, idx), "speed": flow['currentSpeed']}
+    except:
+        return {"index": 3, "speed": 45}
 
-def get_ai_response(category, metrics, district):
-    """Формируем ответы на 3 вопроса кейса на основе данных"""
-    
-    if category == "ecology":
-        aqi = metrics['aqi']
-        if aqi <= 2:
-            return {
-                "issue": "Состояние воздуха в пределах нормы.",
-                "impact": "Низкая (Безопасно)",
-                "action": "Специальных мер не требуется. Рекомендуется плановое озеленение."
-            }
-        elif aqi == 3:
-            return {
-                "issue": "Зафиксировано умеренное накопление смога.",
-                "impact": "Средняя (Риск для групп риска)",
-                "action": "ML-прогноз: Ожидается рост PM2.5. Рекомендовано усилить контроль за выбросами частного сектора."
-            }
-        else:
-            return {
-                "issue": "Критическое загрязнение атмосферы.",
-                "impact": "Высокая (Опасно для здоровья)",
-                "action": "Ввести ограничение на движение грузового транспорта. Рекомендовать ношение респираторов."
-            }
-    
-    else: # ЖКХ
-        status = metrics['status']
-        if status == "Critical":
-            return {
-                "issue": f"Аварийная ситуация на магистрали в районе {district}.",
-                "impact": "Высокая (Риск прекращения подачи ресурсов)",
-                "action": "Автоматическая диспетчеризация: Выезд бригады №7. Переключить район на резервную линию."
-            }
-        elif status == "Warning":
-            return {
-                "issue": "Обнаружена аномальная нагрузка при высоком износе сетей.",
-                "impact": "Средняя (Вероятность прорыва 75%)",
-                "action": "Снизить давление в системе. Провести внеплановый технический осмотр узла."
-            }
-        else:
-            return {
-                "issue": "Инфраструктура работает в штатном режиме.",
-                "impact": "Низкая",
-                "action": "Продолжать автоматизированный мониторинг датчиков."
-            }
-
-# --- ЭНДПОИНТЫ ---
-
-@app.get("/api/v1/data")
+@app.get("/api/v1/dashboard")
 async def get_dashboard_data(
-    type: str = Query(..., description="ecology or utilities"),
-    district: str = Query(..., description="Name of the district")
+    category: str = Query(...), 
+    district: str = Query(...)
 ):
     if district not in DISTRICTS:
-        raise HTTPException(status_code=404, detail="District not found")
+        raise HTTPException(status_code=404, detail="Район не найден")
     
     conf = DISTRICTS[district]
     
-    if type == "ecology":
-        weather_metrics = fetch_weather(conf['lat'], conf['lon'])
-        return {
-            "district": district,
-            "type": "ecology",
-            "status": "Warning" if weather_metrics['aqi'] >= 4 else "Stable",
-            "metrics": weather_metrics,
-            "ai_report": get_ai_response("ecology", weather_metrics, district)
-        }
-    
-    elif type == "utilities":
-        # Имитируем показания датчиков
-        pressure = round(random.uniform(3.0, 4.5), 1)
-        # Триггер аварии для демонстрации (район Бостандыкский)
-        if district == "Bostandyq":
-            pressure = 1.3
-            
-        load = random.randint(40, 95)
-        wear = conf['wear']
-        
-        # ВЫЗОВ ML-ДВИЖКА ИЗ ml_logic.py
-        ml_analysis = engine.predict_utility_risk(pressure, load, wear)
-        
-        metrics = {
-            "water_pressure": pressure,
-            "load": f"{load}%",
-            "wear": f"{wear}%",
-            "status": ml_analysis['status'] # Результат работы ML
-        }
-        
-        return {
-            "district": district,
-            "type": "utilities",
-            "status": ml_analysis['status'],
-            "risk_level": ml_analysis['level'],
-            "metrics": metrics,
-            "ai_report": get_ai_response("utilities", metrics, district)
-        }
+    # Сбор метрик в зависимости от категории
+    if category == "traffic":
+        metrics = get_traffic_data(conf['lat'], conf['lon'])
+        status = "Critical" if metrics['index'] >= 8 else "Stable"
+    elif category == "utilities":
+        # Генерируем данные для RandomForest
+        pressure = 1.2 if district == "Bostandyq" else 3.8
+        load = 92 if district == "Bostandyq" else 40
+        risk = engine.predict_utility_risk(pressure, load, conf['wear'])
+        metrics = {"pressure": pressure, "load": load, "wear": conf['wear']}
+        status = risk['status']
+    else: # ecology
+        metrics = {"aqi": random.randint(1, 5), "pm25": random.uniform(10, 80)}
+        status = "Warning" if metrics['aqi'] >= 4 else "Stable"
 
-@app.get("/health")
-def health_check():
-    return {"status": "online"}
+    # Получаем финальный совет от Gemini через прямой HTTP запрос
+    ai_advice = await engine.get_ai_recommendation(category, district, metrics)
+
+    return {
+        "district": district,
+        "category": category,
+        "status": status,
+        "metrics": metrics,
+        "ai_report": ai_advice
+    }
 
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
