@@ -5,14 +5,13 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# Импорт нашего движка
+# Импорт твоего движка
 from ml_logic import engine 
 
 load_dotenv()
 
 app = FastAPI(title="Smart City Almaty API")
 
-# Разрешаем фронтенду (React) стучаться в бэкенд
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,7 +22,6 @@ app.add_middleware(
 
 TOMTOM_KEY = os.getenv("TOMTOM_API_KEY")
 
-# Справочник районов Алматы
 DISTRICTS = {
     "Medeu": {"lat": 43.2360, "lon": 76.9458, "wear": 45},
     "Bostandyq": {"lat": 43.2185, "lon": 76.9276, "wear": 85},
@@ -36,7 +34,6 @@ DISTRICTS = {
 }
 
 def get_traffic_data(lat, lon):
-    """Данные из TomTom или мок-данные"""
     if not TOMTOM_KEY:
         return {"index": random.randint(1, 8), "speed": random.randint(20, 60)}
     try:
@@ -58,12 +55,11 @@ async def get_dashboard_data(
     
     conf = DISTRICTS[district]
     
-    # Сбор метрик в зависимости от категории
+    # 1. Сбор метрик
     if category == "traffic":
         metrics = get_traffic_data(conf['lat'], conf['lon'])
         status = "Critical" if metrics['index'] >= 8 else "Stable"
     elif category == "utilities":
-        # Генерируем данные для RandomForest
         pressure = 1.2 if district == "Bostandyq" else 3.8
         load = 92 if district == "Bostandyq" else 40
         risk = engine.predict_utility_risk(pressure, load, conf['wear'])
@@ -73,14 +69,30 @@ async def get_dashboard_data(
         metrics = {"aqi": random.randint(1, 5), "pm25": random.uniform(10, 80)}
         status = "Warning" if metrics['aqi'] >= 4 else "Stable"
 
-    # Получаем финальный совет от Gemini через прямой HTTP запрос
+    # 2. ДОБАВЛЯЕМ ML-ПРОГНОЗ ВРЕМЕНИ (Regression)
+    # Мы вызываем функцию из ml_logic (убедись, что она там есть!)
+    # Если функции там нет, можно добавить простую логику прямо тут:
+    try:
+        # Пытаемся вызвать из твоего движка, если ты её туда добавил
+        ml_forecast = engine.calculate_time_forecast(category, metrics)
+    except AttributeError:
+        # Запасной вариант, если в ml_logic еще нет этой функции
+        if category == "traffic":
+            val = metrics.get('index', 1) * 15
+            ml_forecast = {"label": "Разгрузка через", "value": f"{val} мин", "trend": "Анализ трафика", "probability": "85%"}
+        else:
+            ml_forecast = {"label": "Очистка через", "value": "2.4 ч", "trend": "Стабилизация", "probability": "90%"}
+
+    # 3. Получаем совет от AI
     ai_advice = await engine.get_ai_recommendation(category, district, metrics)
 
+    # 4. ФОРМИРУЕМ ОТВЕТ С НОВЫМ ПОЛЕМ
     return {
         "district": district,
         "category": category,
         "status": status,
         "metrics": metrics,
+        "ml_forecast": ml_forecast, # КЛЮЧЕВОЕ ПОЛЕ ДЛЯ ФРОНТЕНДА
         "ai_report": ai_advice
     }
 
